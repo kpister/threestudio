@@ -140,17 +140,14 @@ class SingleImageDataBase:
         directions: Float[Tensor, "1 H W 3"] = self.directions_unit_focal[None]
         directions[:, :, :, :2] = directions[:, :, :, :2] / self.focal_length
 
-        rays_o, rays_d = get_rays(
+        self.rays_o, self.rays_d = get_rays(
             directions, self.c2w, keepdim=True, noise_scale=self.cfg.rays_noise_scale
         )
 
         proj_mtx: Float[Tensor, "4 4"] = get_projection_matrix(
             self.fovy, self.width / self.height, 0.1, 100.0
         )  # FIXME: hard-coded near and far
-        mvp_mtx: Float[Tensor, "4 4"] = get_mvp_matrix(self.c2w, proj_mtx)
-
-        self.rays_o, self.rays_d = rays_o, rays_d
-        self.mvp_mtx = mvp_mtx
+        self.mvp_mtx: Float[Tensor, "4 4"] = get_mvp_matrix(self.c2w, proj_mtx)
 
     def load_images(self):
         # load image
@@ -269,6 +266,24 @@ class SingleImageIterableDataset(IterableDataset, SingleImageDataBase, Updateabl
             yield {}
 
 
+class TwoImageIterableDataset(IterableDataset, Updateable):
+    def __init__(self, cfgs: list[Any], split: str) -> None:
+        self.datasets = [SingleImageIterableDataset(cfg, split) for cfg in cfgs]
+
+    def collate(self, batch) -> Dict[str, Any]:
+        return self.datasets[batch[0]].collate(batch)
+        
+    def update_step(self, epoch: int, global_step: int, on_load_weights: bool = False):
+        for ds in self.datasets:
+            ds.update_step(epoch, global_step, on_load_weights)
+            ds.random_pose_generator.update_step(epoch, global_step, on_load_weights)
+
+    def __iter__(self):
+        while True:
+            yield from range(len(self.datasets))
+            
+
+
 class SingleImageDataset(Dataset, SingleImageDataBase):
     def __init__(self, cfg: Any, split: str) -> None:
         super().__init__()
@@ -308,6 +323,64 @@ class SingleImageDataModule(pl.LightningDataModule):
     def setup(self, stage=None) -> None:
         if stage in [None, "fit"]:
             self.train_dataset = SingleImageIterableDataset(self.cfg, "train")
+        if stage in [None, "fit", "validate"]:
+            self.val_dataset = SingleImageDataset(self.cfg, "val")
+        if stage in [None, "test", "predict"]:
+            self.test_dataset = SingleImageDataset(self.cfg, "test")
+
+    def prepare_data(self):
+        pass
+
+    def general_loader(self, dataset, batch_size, collate_fn=None) -> DataLoader:
+        return DataLoader(
+            dataset, num_workers=0, batch_size=batch_size, collate_fn=collate_fn
+        )
+
+    def train_dataloader(self) -> DataLoader:
+        return self.general_loader(
+            self.train_dataset,
+            batch_size=self.cfg.batch_size,
+            collate_fn=self.train_dataset.collate,
+        )
+
+    def val_dataloader(self) -> DataLoader:
+        return self.general_loader(self.val_dataset, batch_size=1)
+
+    def test_dataloader(self) -> DataLoader:
+        return self.general_loader(self.test_dataset, batch_size=1)
+
+    def predict_dataloader(self) -> DataLoader:
+        return self.general_loader(self.test_dataset, batch_size=1)
+
+
+@register("two-image-datamodule")
+class TwoImageDataModule(pl.LightningDataModule):
+    cfg: SingleImageDataModuleConfig
+
+    def __init__(self, cfg: Optional[Union[dict, DictConfig]] = None) -> None:
+        super().__init__()
+
+        import copy
+        self.cfgs = []
+        for image_path, azimuth, elevation in zip(cfg["image_paths"], cfg["default_azimuth_degs"], cfg["default_elevation_degs"]):
+            _cfg = copy.deepcopy(cfg)
+            _cfg["image_path"] = image_path
+            _cfg["default_azimuth_deg"] = azimuth
+            _cfg["default_elevation_deg"] = elevation
+
+            del _cfg["image_paths"]
+            del _cfg["default_elevation_degs"]
+            del _cfg["default_azimuth_degs"]
+            self.cfgs.append(parse_structured(SingleImageDataModuleConfig, _cfg))
+
+
+        self.cfg = self.cfgs[0]
+
+    def setup(self, stage=None) -> None:
+        if stage in [None, "fit"]:
+            self.train_dataset = TwoImageIterableDataset(self.cfgs, "train")
+            # self.train_dataset_2 = SingleImageIterableDataset(self.cfg2, "train")
+            # self.train_dataset = ConcatDataset([self.train_dataset_1, self.train_dataset_2])
         if stage in [None, "fit", "validate"]:
             self.val_dataset = SingleImageDataset(self.cfg, "val")
         if stage in [None, "test", "predict"]:

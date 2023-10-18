@@ -8,6 +8,11 @@ from threestudio.systems.base import BaseLift3DSystem
 from threestudio.utils.ops import binary_cross_entropy, dot
 from threestudio.utils.typing import *
 
+def save_to_image(tensor):
+    from torchvision.transforms.functional import to_pil_image
+
+    xx = to_pil_image(tensor.permute(2, 0, 1))
+    xx.save()
 
 @threestudio.register("magic123-system")
 class Magic123(BaseLift3DSystem):

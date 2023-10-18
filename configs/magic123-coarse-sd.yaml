@@ -6,16 +6,16 @@ seed: 0
 data_type: "single-image-datamodule"
 data:
   image_path: ???
-  height: 128
-  width: 128
+  height: 256
+  width: 256
   default_elevation_deg: 0.0
   default_azimuth_deg: 0.0
-  default_camera_distance: 2.5
+  default_camera_distance: 1.5
   default_fovy_deg: 40.0
   random_camera:
-    batch_size: 1
-    height: 128
-    width: 128
+    batch_size: 4
+    height: 256
+    width: 256
     elevation_range: [-45, 45]
     azimuth_range: [-180, 180]
     camera_distance_range: [2.5, 2.5]
@@ -91,12 +91,14 @@ system:
   prompt_processor_type: "stable-diffusion-prompt-processor"
   prompt_processor:
     pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
+    # pretrained_model_name_or_path: "stabilityai/stable-diffusion-xl-base-1.0"
     prompt: ???
 
   guidance_type: "stable-diffusion-unified-guidance"
   guidance:
     guidance_type: "sds"
     pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
+    # pretrained_model_name_or_path: "stabilityai/stable-diffusion-xl-base-1.0"
     guidance_scale: 100.
     min_step_percent: 0.2
     max_step_percent: 0.6
@@ -110,7 +112,7 @@ system:
   loss:
     lambda_rgb: 1000.
     lambda_mask: 100.
-    lambda_sd: 0.025
+    lambda_sd: 0.010
     lambda_3d_sd: 1.
     lambda_orient: 0.
     lambda_normal_smoothness_2d: 1000.

@@ -36,7 +36,8 @@ class Zero123UnifiedGuidance(BaseModule):
         # guidance type, in ["sds", "vsd"]
         guidance_type: str = "sds"
 
-        pretrained_model_name_or_path: str = "bennyguo/zero123-diffusers"
+        # pretrained_model_name_or_path: str = "bennyguo/zero123-diffusers"
+        pretrained_model_name_or_path: str = "bennyguo/zero123-xl-diffusers"
         guidance_scale: float = 5.0
         weighting_strategy: str = "dreamfusion"
 

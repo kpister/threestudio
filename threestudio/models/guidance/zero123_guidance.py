@@ -75,7 +75,8 @@ def load_model_from_config(config, ckpt, device, vram_O=True, verbose=False):
 class Zero123Guidance(BaseObject):
     @dataclass
     class Config(BaseObject.Config):
-        pretrained_model_name_or_path: str = "load/zero123/105000.ckpt"
+        # pretrained_model_name_or_path: str = "load/zero123/105000.ckpt"
+        pretrained_model_name_or_path: str = "load/zero123/zero123-xl.ckpt"
         pretrained_config: str = "load/zero123/sd-objaverse-finetune-c_concat-256.yaml"
         vram_O: bool = True
 
